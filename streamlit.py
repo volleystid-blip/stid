@@ -5,8 +5,7 @@
 # ======================================================================
 print("1. Configuration des dépendances...")
 
-# Installation de tabula-py et tabulate (pour Colab/Jupyter)
-!pip install tabula-py tabulate > /dev/null
+
 import tabula
 import pandas as pd
 import numpy as np
