@@ -35,18 +35,36 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes shadow-scale { 0% { transform: scale(0.4); opacity: 0.2; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* RÈGLES D'IMPRESSION (Export PDF) */
+        @media print {
+            body { background-color: white !important; }
+            .print-cacher { display: none !important; }
+            
+            /* Un bloc vide qui force le saut de page */
+            .print-saut-page { 
+                page-break-before: always !important; 
+                break-before: page !important;
+                display: block;
+                height: 0;
+            }
+            
+            .print-eviter-coupure { page-break-inside: avoid; break-inside: avoid; }
+            #statsContainer { margin-top: 0 !important; }
+            .shadow-lg, .shadow-sm { box-shadow: none !important; border: 1px solid #ddd !important; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
     
-    <header class="bg-slate-900 text-white p-4 shadow-xl flex justify-between items-center sticky top-0 z-50">
+    <header class="bg-slate-900 text-white p-4 shadow-xl flex justify-between items-center sticky top-0 z-50 print-cacher">
         <h1 class="text-xl font-black flex items-center gap-2 tracking-widest"><span class="material-symbols-outlined text-blue-500">query_stats</span> DATA SCOUTING</h1>
         <a href="/" class="bg-slate-800 px-4 py-2 rounded-lg font-bold hover:bg-slate-700 transition text-sm">Retour Accueil</a>
     </header>
 
     <main class="max-w-7xl mx-auto mt-8 p-4">
         
-        <div class="mb-8 max-w-4xl mx-auto">
+        <div class="mb-8 max-w-4xl mx-auto print-cacher">
             <div class="flex justify-between items-end mb-4">
                 <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                     <span class="material-symbols-outlined text-blue-500">list_alt</span> Sélectionnez un Match
@@ -64,7 +82,7 @@
             </div>
         </div>
 
-        <div id="loadingMsg" class="loader-container hidden">
+        <div id="loadingMsg" class="loader-container hidden print-cacher">
             <div class="volleyball-wrapper">
                 <div class="ball-bouncer">
                     <svg class="volleyball" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#ffffff" stroke="#2c3e50" stroke-width="4"/><path d="M 50 2 C 20 20, 20 80, 50 98" fill="none" stroke="#2c3e50" stroke-width="4"/><path d="M 2 50 C 20 20, 80 20, 98 50" fill="none" stroke="#2c3e50" stroke-width="4"/><path d="M 2 50 C 20 80, 80 80, 98 50" fill="none" stroke="#2c3e50" stroke-width="4"/></svg>
@@ -77,7 +95,7 @@
         <div id="statsContainer" class="hidden space-y-12 mt-8">
             <h2 id="matchTitleDisplay" class="text-4xl font-black text-slate-800 text-center mt-10 mb-4 uppercase tracking-tight"></h2>
             
-            <div id="exportZone" class="flex justify-center items-center gap-2 mb-10 hidden">
+            <div id="exportZone" class="flex justify-center items-center gap-2 mb-10 hidden print-cacher">
                 <select id="exportSetSelect" class="border-2 border-slate-200 bg-white rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-500">
                     <option value="all">Match Complet</option>
                 </select>
@@ -86,7 +104,7 @@
                 </button>
             </div>
             
-            <section class="space-y-8">
+            <section class="space-y-8 print-eviter-coupure">
                 <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">group</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">1. Performances Individuelles</h3></div>
                 <div class="flex justify-center mb-8">
                     <div id="pieZoneHome" class="bg-white rounded-2xl shadow-sm p-4 border border-blue-200 hidden"></div>
@@ -117,7 +135,7 @@
                 </div>
             </section>
 
-            <section class="space-y-8">
+            <section class="space-y-8 print-saut-page print-eviter-coupure">
                 <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">rotate_right</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">2. Efficacité Tactique</h3></div>
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
                     <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
@@ -141,9 +159,9 @@
                 </div>
             </section>
 
-            <section class="space-y-8" id="setsGraphsZone">
+            <section class="space-y-8 print-saut-page" id="setsGraphsZone">
                 <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">insert_chart</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">3. Analyse Tactique des Sets</h3></div>
-                </section>
+            </section>
         </div>
     </main>
 
@@ -219,7 +237,6 @@
         function renderTextStats(data) {
             document.getElementById('matchTitleDisplay').innerText = data.match_title;
             
-            // --- GESTION DE L'EXPORT JSON ---
             window.currentRawData = data.raw_data;
             const exportSelect = document.getElementById('exportSetSelect');
             exportSelect.innerHTML = '<option value="all">Match Complet</option>';
@@ -227,7 +244,6 @@
                 exportSelect.innerHTML += `<option value="${s.set}">Uniquement Set ${s.set}</option>`;
             });
             document.getElementById('exportZone').classList.remove('hidden');
-            // --------------------------------
 
             const pzh = document.getElementById('pieZoneHome');
             if(data.pie_h) { pzh.innerHTML = `<img src="data:image/png;base64,${data.pie_h}" class="w-80">`; pzh.classList.remove('hidden'); }
@@ -266,11 +282,12 @@
             document.getElementById('tableRotAway').innerHTML = data.eff_rot_a.map(r => buildRotRow(r)).join('');
 
             const zone = document.getElementById('setsGraphsZone');
-            zone.innerHTML = '<div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">insert_chart</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">3. Analyse Chronologique des Sets</h3></div>';
+            zone.innerHTML = '<div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">insert_chart</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">3. Analyse Tactique des Sets</h3></div>';
             
             data.sets_info.forEach(s => {
                 zone.innerHTML += `
-                    <div class="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 relative overflow-hidden mb-6">
+                    <div class="print-saut-page"></div>
+                    <div class="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 relative overflow-hidden mb-6 print-eviter-coupure">
                         <div class="absolute top-0 left-0 bg-slate-800 text-white px-6 py-2 rounded-br-3xl font-black tracking-widest uppercase text-sm shadow-md">Set ${s.set}</div>
                         <div class="absolute top-4 right-6 bg-slate-100 text-slate-800 px-6 py-2 rounded-xl border-2 border-slate-300 font-black text-2xl shadow-sm">${s.score}</div>
                         <div id="graphs-set-${s.set}" class="mt-16 text-center text-blue-500 font-bold animate-pulse">Calcul des schémas tactiques en cours...</div>
@@ -304,14 +321,12 @@
             }
         }
 
-        // FONCTION DE TÉLÉCHARGEMENT DU JSON
         window.downloadJsonExport = function() {
             if(!window.currentRawData) return;
             
             const setVal = document.getElementById('exportSetSelect').value;
-            let exportData = JSON.parse(JSON.stringify(window.currentRawData)); // Copie propre
+            let exportData = JSON.parse(JSON.stringify(window.currentRawData)); 
             
-            // Formatage du nom du fichier pour éviter les espaces
             let fileName = `Data_${exportData.home.name}_vs_${exportData.away.name}`.replace(/\s+/g, '_');
             
             if(setVal !== "all") {
@@ -322,7 +337,6 @@
                 fileName += `_Complet`;
             }
             
-            // Création du fichier téléchargeable
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
             const a = document.createElement('a');
             a.href = dataStr;
