@@ -1,0 +1,13 @@
+flask
+flask-cors
+sqlalchemy
+psycopg2-binary
+gunicorn
+werkzeug
+tabula-py
+pandas
+numpy
+matplotlib
+tabulate
+pdfplumber
+

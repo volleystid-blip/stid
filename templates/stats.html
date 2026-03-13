@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Analyse Globale & Stats - VolleyLive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Lexend', sans-serif; }
+        .bg-gradient-blue { background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%); }
+        .bg-gradient-orange { background: linear-gradient(90deg, #fff7ed 0%, #ffedd5 100%); }
+        .match-menu { width: 100%; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; max-height: 400px; overflow-y: auto; }
+        .match-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s ease; }
+        .match-item:hover { background: #f8f9fa; }
+        .match-item:last-child { border-bottom: none; }
+        .team-info { display: flex; align-items: center; gap: 10px; width: 35%; }
+        .team-info.reverse { flex-direction: row-reverse; text-align: right; }
+        .team-logo { width: 35px; height: 35px; object-fit: contain; border-radius: 5px; }
+        .team-name { font-weight: 700; font-size: 14px; color: #1e293b; }
+        .vs-score { font-size: 16px; color: #334155; font-weight: 900; text-align: center; width: 15%; }
+        .status-container { width: 15%; display: flex; justify-content: flex-end; }
+        .status-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; text-transform: uppercase; }
+        .status-live { background: #ffebee; color: #d32f2f; display: flex; align-items: center; gap: 5px; border: 1px solid #ffcdd2; }
+        .status-live::before { content: ''; display: block; width: 6px; height: 6px; background: #d32f2f; border-radius: 50%; animation: pulse-red 1.5s infinite; }
+        .status-past { background: #f1f5f9; color: #64748b; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.5); } 70% { box-shadow: 0 0 0 6px rgba(211, 47, 47, 0); } 100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
+        .loader-container { display: flex; flex-direction: column; align-items: center; margin-top: 2rem; margin-bottom: 2rem; }
+        .volleyball-wrapper { position: relative; width: 100px; height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+        .ball-bouncer { animation: bounce 0.5s infinite alternate ease-in; }
+        .volleyball { width: 70px; height: 70px; animation: spin 1.5s infinite linear; }
+        .shadow-ball { width: 50px; height: 8px; background: rgba(0, 0, 0, 0.15); border-radius: 50%; margin-top: 5px; animation: shadow-scale 0.5s infinite alternate ease-in; }
+        .loading-text { margin-top: 24px; font-weight: 700; font-size: 1.1rem; color: #2563eb; animation: pulse 1s infinite alternate ease-in-out; letter-spacing: 0.05em; text-transform: uppercase; }
+        @keyframes bounce { 0% { transform: translateY(-80px); } 100% { transform: translateY(0); } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes shadow-scale { 0% { transform: scale(0.4); opacity: 0.2; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    
+    <header class="bg-slate-900 text-white p-4 shadow-xl flex justify-between items-center sticky top-0 z-50">
+        <h1 class="text-xl font-black flex items-center gap-2 tracking-widest"><span class="material-symbols-outlined text-blue-500">query_stats</span> DATA SCOUTING</h1>
+        <a href="/" class="bg-slate-800 px-4 py-2 rounded-lg font-bold hover:bg-slate-700 transition text-sm">Retour Accueil</a>
+    </header>
+
+    <main class="max-w-7xl mx-auto mt-8 p-4">
+        
+        <div class="mb-8 max-w-4xl mx-auto">
+            <div class="flex justify-between items-end mb-4">
+                <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                    <span class="material-symbols-outlined text-blue-500">list_alt</span> Sélectionnez un Match
+                </h2>
+                <div>
+                    <input type="file" id="jsonUpload" accept=".json" class="hidden" onchange="uploadJsonMatch(this)">
+                    <button onclick="document.getElementById('jsonUpload').click()" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow hover:bg-slate-700 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">upload_file</span> Importer fichier JSON
+                    </button>
+                </div>
+            </div>
+            
+            <div id="matchMenuContainer" class="match-menu">
+                <div class="p-6 text-center text-slate-500 font-bold animate-pulse">Chargement de l'historique...</div>
+            </div>
+        </div>
+
+        <div id="loadingMsg" class="loader-container hidden">
+            <div class="volleyball-wrapper">
+                <div class="ball-bouncer">
+                    <svg class="volleyball" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="#ffffff" stroke="#2c3e50" stroke-width="4"/><path d="M 50 2 C 20 20, 20 80, 50 98" fill="none" stroke="#2c3e50" stroke-width="4"/><path d="M 2 50 C 20 20, 80 20, 98 50" fill="none" stroke="#2c3e50" stroke-width="4"/><path d="M 2 50 C 20 80, 80 80, 98 50" fill="none" stroke="#2c3e50" stroke-width="4"/></svg>
+                </div>
+                <div class="shadow-ball"></div>
+            </div>
+            <p class="loading-text">Calcul des statistiques...</p>
+        </div>
+
+        <div id="statsContainer" class="hidden space-y-12 mt-8">
+            <h2 id="matchTitleDisplay" class="text-4xl font-black text-slate-800 text-center mt-10 mb-4 uppercase tracking-tight"></h2>
+            
+            <div id="exportZone" class="flex justify-center items-center gap-2 mb-10 hidden">
+                <select id="exportSetSelect" class="border-2 border-slate-200 bg-white rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:border-blue-500">
+                    <option value="all">Match Complet</option>
+                </select>
+                <button onclick="downloadJsonExport()" class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow hover:bg-blue-700 flex items-center gap-2 transition">
+                    <span class="material-symbols-outlined text-sm">download</span> Exporter la Data (JSON)
+                </button>
+            </div>
+            
+            <section class="space-y-8">
+                <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">group</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">1. Performances Individuelles</h3></div>
+                <div class="flex justify-center mb-8">
+                    <div id="pieZoneHome" class="bg-white rounded-2xl shadow-sm p-4 border border-blue-200 hidden"></div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-2xl shadow-lg border-t-8 border-blue-500 overflow-hidden">
+                        <div class="bg-gradient-blue p-4 font-black text-blue-900 uppercase tracking-widest text-center" id="titleIndivHome"></div>
+                        <div class="overflow-x-auto p-4">
+                            <table class="w-full text-sm text-center">
+                                <thead class="text-[9px] text-gray-500 border-b-2 border-blue-200 uppercase">
+                                    <tr><th class="p-2 text-left">N° / Poste</th><th class="p-2 text-blue-600">Total<br>Pts</th><th class="p-2 text-red-500">Fautes<br>Att.</th><th class="p-2">Ratio<br>Pts/Ft</th><th class="p-2">Att<br>Gagnées</th><th class="p-2">Blocs</th><th class="p-2">Aces</th><th class="p-2">Serv<br>Tentés</th><th class="p-2">% Serv<br>Réussis</th></tr>
+                                </thead>
+                                <tbody id="tableIndivHome" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-lg border-t-8 border-orange-500 overflow-hidden">
+                        <div class="bg-gradient-orange p-4 font-black text-orange-900 uppercase tracking-widest text-center" id="titleIndivAway"></div>
+                        <div class="overflow-x-auto p-4">
+                            <table class="w-full text-sm text-center">
+                                <thead class="text-[9px] text-gray-500 border-b-2 border-orange-200 uppercase">
+                                    <tr><th class="p-2 text-left">N° / Poste</th><th class="p-2 text-orange-600">Total<br>Pts</th><th class="p-2 text-red-500">Fautes<br>Att.</th><th class="p-2">Ratio<br>Pts/Ft</th><th class="p-2">Att<br>Gagnées</th><th class="p-2">Blocs</th><th class="p-2">Aces</th><th class="p-2">Serv<br>Tentés</th><th class="p-2">% Serv<br>Réussis</th></tr>
+                                </thead>
+                                <tbody id="tableIndivAway" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-8">
+                <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">rotate_right</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">2. Efficacité Tactique</h3></div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                        <div class="bg-slate-100 p-3 font-bold text-slate-700 text-center text-sm border-b" id="titleRotHome"></div>
+                        <table class="w-full text-sm text-center">
+                            <thead class="text-[9px] bg-slate-50 text-slate-500 border-b uppercase">
+                                <tr><th class="p-2 text-left">Rotation</th><th class="p-2">Réussite Récep<br>(Side-out)</th><th class="p-2">Gain Service<br>(Break)</th><th class="p-2 text-red-500">Fautes<br>Att</th><th class="p-2">Ratio<br>Pts/Ft</th><th class="p-2 font-black text-blue-600">BILAN</th></tr>
+                            </thead>
+                            <tbody id="tableRotHome" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                        <div class="bg-slate-100 p-3 font-bold text-slate-700 text-center text-sm border-b" id="titleRotAway"></div>
+                        <table class="w-full text-sm text-center">
+                            <thead class="text-[9px] bg-slate-50 text-slate-500 border-b uppercase">
+                                <tr><th class="p-2 text-left">Rotation</th><th class="p-2">Réussite Récep<br>(Side-out)</th><th class="p-2">Gain Service<br>(Break)</th><th class="p-2 text-red-500">Fautes<br>Att</th><th class="p-2">Ratio<br>Pts/Ft</th><th class="p-2 font-black text-orange-600">BILAN</th></tr>
+                            </thead>
+                            <tbody id="tableRotAway" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-8" id="setsGraphsZone">
+                <div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">insert_chart</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">3. Analyse Tactique des Sets</h3></div>
+                </section>
+        </div>
+    </main>
+
+    <script>
+        let activeMatchId = null;
+        let activeJsonData = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const listContainer = document.getElementById('matchMenuContainer');
+            try {
+                const res = await fetch('/api/completed_matches');
+                const data = await res.json();
+                if (data.error) { listContainer.innerHTML = `<div class="p-6 text-red-500 font-bold text-center">Erreur: ${data.error}</div>`; return; }
+                if (data.length === 0) { listContainer.innerHTML = `<div class="p-6 text-slate-500 font-bold text-center">Aucun match enregistré.</div>`; return; }
+                listContainer.innerHTML = '';
+                data.forEach(m => {
+                    const statusHtml = m.is_live ? `<span class="status-badge status-live">Live</span>` : `<span class="status-badge status-past">Terminé</span>`;
+                    const fallbackHome = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.team_home)}&background=e0e7ff&color=1e40af&bold=true`;
+                    const fallbackAway = `https://ui-avatars.com/api/?name=${encodeURIComponent(m.team_away)}&background=ffedd5&color=c2410c&bold=true`;
+                    const imgHome = m.logo_home ? m.logo_home : fallbackHome;
+                    const imgAway = m.logo_away ? m.logo_away : fallbackAway;
+
+                    listContainer.innerHTML += `
+                    <div class="match-item" onclick="loadStats(${m.id})">
+                        <div class="team-info"><img src="${imgHome}" class="team-logo" onerror="this.src='${fallbackHome}'"><span class="team-name">${m.team_home}</span></div>
+                        <div class="vs-score">${m.score}</div>
+                        <div class="team-info reverse"><img src="${imgAway}" class="team-logo" onerror="this.src='${fallbackAway}'"><span class="team-name">${m.team_away}</span></div>
+                        <div class="status-container hidden sm:flex">${statusHtml}</div>
+                    </div>`;
+                });
+            } catch (e) { listContainer.innerHTML = `<div class="p-6 text-red-500 font-bold text-center">Erreur.</div>`; }
+        });
+
+        async function uploadJsonMatch(input) {
+            const file = input.files[0]; if(!file) return;
+            document.getElementById('loadingMsg').classList.remove('hidden');
+            document.getElementById('statsContainer').classList.add('hidden');
+            document.getElementById('exportZone').classList.add('hidden');
+            document.getElementById('loadingMsg').scrollIntoView({ behavior: 'smooth' });
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    const res = await fetch('/api/analyze_json', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(jsonData) });
+                    const data = await res.json();
+                    if(data.error) { alert(data.error); document.getElementById('loadingMsg').classList.add('hidden'); return; }
+                    
+                    activeMatchId = "JSON";
+                    activeJsonData = data.raw_data;
+                    renderTextStats(data);
+                } catch(err) { alert("Fichier JSON invalide."); document.getElementById('loadingMsg').classList.add('hidden'); }
+            };
+            reader.readAsText(file);
+        }
+
+        async function loadStats(matchId) {
+            activeMatchId = matchId;
+            activeJsonData = null;
+            document.getElementById('loadingMsg').classList.remove('hidden');
+            document.getElementById('statsContainer').classList.add('hidden');
+            document.getElementById('exportZone').classList.add('hidden');
+            document.getElementById('loadingMsg').scrollIntoView({ behavior: 'smooth' });
+
+            try {
+                const res = await fetch(`/api/match_stats_text/${matchId}`);
+                const data = await res.json();
+                if (data.error) { alert(data.error); document.getElementById('loadingMsg').classList.add('hidden'); return; }
+                renderTextStats(data);
+            } catch (e) { alert("Erreur réseau"); document.getElementById('loadingMsg').classList.add('hidden'); }
+        }
+
+        function renderTextStats(data) {
+            document.getElementById('matchTitleDisplay').innerText = data.match_title;
+            
+            // --- GESTION DE L'EXPORT JSON ---
+            window.currentRawData = data.raw_data;
+            const exportSelect = document.getElementById('exportSetSelect');
+            exportSelect.innerHTML = '<option value="all">Match Complet</option>';
+            data.sets_info.forEach(s => {
+                exportSelect.innerHTML += `<option value="${s.set}">Uniquement Set ${s.set}</option>`;
+            });
+            document.getElementById('exportZone').classList.remove('hidden');
+            // --------------------------------
+
+            const pzh = document.getElementById('pieZoneHome');
+            if(data.pie_h) { pzh.innerHTML = `<img src="data:image/png;base64,${data.pie_h}" class="w-80">`; pzh.classList.remove('hidden'); }
+            document.getElementById('titleIndivHome').innerText = data.team_home;
+            document.getElementById('titleIndivAway').innerText = data.team_away;
+            
+            const buildIndivRow = (r, isHome) => {
+                const colorScore = isHome ? 'bg-blue-100 text-blue-900' : 'bg-orange-100 text-orange-900';
+                return `<tr>
+                    <td class="p-3 text-left leading-tight"><span class="font-black text-lg">${r.num}</span> <span class="text-xs text-slate-500 uppercase">(${r.poste})</span>${isHome ? `<br><span class="text-[10px] text-slate-400 font-mono tracking-tighter">${r.licence}</span>` : ''}</td>
+                    <td class="p-3 font-black text-lg ${colorScore} rounded-lg shadow-inner">${r.Pts}</td>
+                    <td class="p-3 text-red-500 font-semibold">${r.Err_Att}</td><td class="p-3 text-slate-800 font-bold">${r.ratio_pf}</td>
+                    <td class="p-3 text-slate-600 font-semibold">${r.Att}</td><td class="p-3 text-slate-600 font-semibold">${r.Bloc}</td>
+                    <td class="p-3 text-green-600 font-black text-lg">${r.Ace}</td><td class="p-3 text-slate-700 font-bold">${r.Serv_T}</td><td class="p-3 font-bold">${r.srv_pct}%</td>
+                </tr>`;
+            };
+            
+            document.getElementById('tableIndivHome').innerHTML = data.stats_indiv_h.map(r => buildIndivRow(r, true)).join('');
+            document.getElementById('tableIndivAway').innerHTML = data.stats_indiv_a.map(r => buildIndivRow(r, false)).join('');
+
+            document.getElementById('titleRotHome').innerText = data.team_home;
+            document.getElementById('titleRotAway').innerText = data.team_away;
+
+            const buildRotRow = (r) => {
+                const diffColor = r.bilan > 0 ? 'text-green-600 bg-green-50' : (r.bilan < 0 ? 'text-red-500 bg-red-50' : 'text-slate-500 bg-slate-50');
+                const diffSign = r.bilan > 0 ? '+'+r.bilan : r.bilan;
+                return `<tr>
+                    <td class="p-3 text-left font-mono text-xs tracking-widest text-slate-500 bg-slate-50 border-r">${r.key}</td>
+                    <td class="p-3 font-bold text-slate-700">${r.recep_pct}%</td><td class="p-3 font-bold text-slate-700">${r.serv_pct}%</td>
+                    <td class="p-3 font-bold text-red-500">${r.fa}</td><td class="p-3 font-bold text-slate-700">${r.ratio_pf}</td>
+                    <td class="p-3 font-black text-lg ${diffColor} rounded-r-lg border-l shadow-inner">${diffSign}</td>
+                </tr>`;
+            };
+
+            document.getElementById('tableRotHome').innerHTML = data.eff_rot_h.map(r => buildRotRow(r)).join('');
+            document.getElementById('tableRotAway').innerHTML = data.eff_rot_a.map(r => buildRotRow(r)).join('');
+
+            const zone = document.getElementById('setsGraphsZone');
+            zone.innerHTML = '<div class="flex items-center gap-3 border-b-2 border-slate-300 pb-2"><span class="material-symbols-outlined text-3xl text-slate-700">insert_chart</span><h3 class="text-2xl font-black text-slate-800 uppercase tracking-widest">3. Analyse Chronologique des Sets</h3></div>';
+            
+            data.sets_info.forEach(s => {
+                zone.innerHTML += `
+                    <div class="bg-white p-8 rounded-3xl shadow-lg border border-slate-200 relative overflow-hidden mb-6">
+                        <div class="absolute top-0 left-0 bg-slate-800 text-white px-6 py-2 rounded-br-3xl font-black tracking-widest uppercase text-sm shadow-md">Set ${s.set}</div>
+                        <div class="absolute top-4 right-6 bg-slate-100 text-slate-800 px-6 py-2 rounded-xl border-2 border-slate-300 font-black text-2xl shadow-sm">${s.score}</div>
+                        <div id="graphs-set-${s.set}" class="mt-16 text-center text-blue-500 font-bold animate-pulse">Calcul des schémas tactiques en cours...</div>
+                    </div>`;
+                fetchGraphsForSet(s.set);
+            });
+
+            document.getElementById('loadingMsg').classList.add('hidden');
+            document.getElementById('statsContainer').classList.remove('hidden');
+        }
+
+        async function fetchGraphsForSet(setNum) {
+            try {
+                let res;
+                if(activeMatchId === "JSON") {
+                    res = await fetch(`/api/analyze_json_graphs/${setNum}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(activeJsonData) });
+                } else {
+                    res = await fetch(`/api/match_stats_graphs/${activeMatchId}/${setNum}`);
+                }
+                const data = await res.json();
+                
+                let html = `<div class="mb-10">${data.graph_duel ? `<img src="data:image/png;base64,${data.graph_duel}" class="w-full rounded-2xl shadow border border-slate-100">` : ''}</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
+                                <div>${data.graph_rot_h ? `<img src="data:image/png;base64,${data.graph_rot_h}" class="w-full rounded-xl mix-blend-multiply">` : ''}</div>
+                                <div>${data.graph_rot_a ? `<img src="data:image/png;base64,${data.graph_rot_a}" class="w-full rounded-xl mix-blend-multiply">` : ''}</div>
+                            </div>`;
+                document.getElementById(`graphs-set-${setNum}`).innerHTML = html;
+                document.getElementById(`graphs-set-${setNum}`).classList.remove("animate-pulse", "text-center", "text-blue-500");
+            } catch(e) {
+                document.getElementById(`graphs-set-${setNum}`).innerHTML = "<p class='text-red-500 font-bold'>Erreur de rendu graphique pour ce set.</p>";
+            }
+        }
+
+        // FONCTION DE TÉLÉCHARGEMENT DU JSON
+        window.downloadJsonExport = function() {
+            if(!window.currentRawData) return;
+            
+            const setVal = document.getElementById('exportSetSelect').value;
+            let exportData = JSON.parse(JSON.stringify(window.currentRawData)); // Copie propre
+            
+            // Formatage du nom du fichier pour éviter les espaces
+            let fileName = `Data_${exportData.home.name}_vs_${exportData.away.name}`.replace(/\s+/g, '_');
+            
+            if(setVal !== "all") {
+                const s = parseInt(setVal);
+                exportData.history = exportData.history.filter(p => p.set === s);
+                fileName += `_Set_${s}`;
+            } else {
+                fileName += `_Complet`;
+            }
+            
+            // Création du fichier téléchargeable
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = fileName + ".json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+    </script>
+</body>
+</html>
