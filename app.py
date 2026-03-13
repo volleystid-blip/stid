@@ -21,8 +21,8 @@ from stats_engine import (
 app = Flask(__name__)
 CORS(app)
 
-app.secret_key = os.getenv("SECRET_KEY", "une_cle_secrete_tres_longue_et_aleatoire")
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.zuepinzkfajzlhpsmxql:2026%2FSTIDVOLL@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
+app.secret_key = os.getenv("SECRET_KEY", "volley_shared_super_secret_key_2026")
+DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.ifijewxplkerjznozwwc:TdZOtTXZG0RIaJbD@aws-1-eu-west-1.pooler.supabase.com:5432/postgres")
 engine = create_engine(DB_URL)
 
 def login_required(f):
@@ -479,3 +479,4 @@ def delete_team(team_id):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
