@@ -477,6 +477,31 @@ def delete_team(team_id):
     except: flash("Erreur suppression équipe.", "error")
     return redirect(url_for('admin_dashboard'))
 
+
+@app.route('/setup_first_admin')
+def setup_first_admin():
+    try:
+        with engine.connect() as conn:
+            trans = conn.begin()
+            # 1. Create a default club (because every user needs to be linked to a club)
+            conn.execute(text("INSERT INTO clubs (name) VALUES ('Admin Club') ON CONFLICT DO NOTHING"))
+            club_id = conn.execute(text("SELECT id FROM clubs WHERE name = 'Admin Club' LIMIT 1")).fetchone()[0]
+            
+            # 2. Encrypt the password
+            hashed_pw = generate_password_hash("admin2026")
+            
+            # 3. Create the Super Admin user
+            conn.execute(text("""
+                INSERT INTO users (username, password_hash, role, club_id) 
+                VALUES ('superadmin', :pw, 'superadmin', :cid)
+            """), {"pw": hashed_pw, "cid": club_id})
+            
+            trans.commit()
+        return "✅ Success! Account created.<br>Username: <b>superadmin</b><br>Password: <b>admin2026</b><br><br>⚠️ IMPORTANT: Now go back to your code and delete this route!"
+    except Exception as e:
+        return f"Account might already exist or error: {str(e)}"
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
 
