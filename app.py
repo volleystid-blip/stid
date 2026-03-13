@@ -21,8 +21,8 @@ from stats_engine import (
 app = Flask(__name__)
 CORS(app)
 
-app.secret_key = os.getenv("SECRET_KEY", "volley_shared_super_secret_key_2026")
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.ifijewxplkerjznozwwc:TdZOtTXZG0RIaJbD@aws-1-eu-west-1.pooler.supabase.com:5432/postgres")
+app.secret_key = os.getenv("SECRET_KEY", "une_cle_secrete_tres_longue_et_aleatoire")
+DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres.zuepinzkfajzlhpsmxql:2026%2FSTIDVOLL@aws-1-eu-central-1.pooler.supabase.com:6543/postgres")
 engine = create_engine(DB_URL)
 
 def login_required(f):
@@ -109,40 +109,7 @@ def get_last_roster(team_id):
             return jsonify({"status": "empty"})
     except: return jsonify({"status": "error", "message": "Erreur BDD"}), 200
 
-@app.route('/api/go_live', methods=['POST'])
-@login_required
-def go_live():
-    data = request.json
-    try:
-        with engine.connect() as conn:
-            trans = conn.begin()
-            result = conn.execute(text("""
-                INSERT INTO matches (club_id, team_id, team_home, team_away, current_set, score_home, score_away, sets_home, sets_away, is_live, roster_home, roster_away)
-                VALUES (:cid, :tid, :th, :ta, :cs, :sh, :sa, :setsh, :setsa, TRUE, :rh, :ra) RETURNING id
-            """), {
-                "cid": session.get('club_id'), "tid": data.get('teamId'), "th": data.get('homeName'), "ta": data.get('awayName'),
-                "cs": data.get('set', 1), "sh": data.get('scoreHome', 0), "sa": data.get('scoreAway', 0), "setsh": data.get('setsHome', 0), "setsa": data.get('setsAway', 0),
-                "rh": json.dumps(data.get('rosterHome', {})), "ra": json.dumps(data.get('rosterAway', {}))
-            })
-            match_id = result.fetchone()[0]
-            trans.commit()
-            return jsonify({"status": "success", "match_id": match_id})
-    except Exception as e: return jsonify({"status": "error", "message": str(e)}), 200
-
-@app.route('/api/update_live', methods=['POST'])
-@login_required
-def update_live():
-    data = request.json
-    if not data.get('match_id'): return jsonify({"error": "No match ID"}), 400
-    try:
-        with engine.connect() as conn:
-            trans = conn.begin()
-            conn.execute(text("UPDATE matches SET current_set=:cs, score_home=:sh, score_away=:sa, sets_home=:setsh, sets_away=:setsa WHERE id=:mid"), 
-                         {"cs": data.get('set', 1), "sh": data.get('scoreHome', 0), "sa": data.get('scoreAway', 0), "setsh": data.get('setsHome', 0), "setsa": data.get('setsAway', 0), "mid": data['match_id']})
-            trans.commit()
-            return jsonify({"status": "success"})
-    except: return jsonify({"status": "error"}), 200
-
+# --- C'EST ICI QUE SE TROUVE LA CORRECTION PRINCIPALE ---
 @app.route('/api/save_match', methods=['POST'])
 @login_required
 def save_match():
@@ -153,6 +120,11 @@ def save_match():
             match_id = data.get('match_id')
             is_finished = data.get('is_finished', False)
             is_live = not is_finished
+            
+            # CORRECTION : Gestion de l'équipe vide pour éviter le crash PostgreSQL
+            tid = data.get('teamId')
+            if tid == "" or str(tid).lower() == "null":
+                tid = None
             
             if match_id:
                 conn.execute(text("""
@@ -172,7 +144,7 @@ def save_match():
                     INSERT INTO matches (club_id, team_id, team_home, team_away, sets_home, sets_away, score_home, score_away, current_set, winner, is_live, roster_home, roster_away) 
                     VALUES (:cid, :tid, :h, :a, :sh, :sa, :score_h, :score_a, :c_set, :w, :islive, :rh, :ra) RETURNING id
                 """), {
-                    "cid": session.get('club_id'), "tid": data.get('teamId'), "h": data.get('homeName'), "a": data.get('awayName'), 
+                    "cid": session.get('club_id'), "tid": tid, "h": data.get('homeName'), "a": data.get('awayName'), 
                     "sh": data.get('setsHome', 0), "sa": data.get('setsAway', 0), "score_h": data.get('scoreHome', 0), "score_a": data.get('scoreAway', 0),
                     "c_set": data.get('currentSet', 1), "w": data.get('winner', ''), "islive": is_live,
                     "rh": json.dumps(data.get('rosterHome', {})), "ra": json.dumps(data.get('rosterAway', {}))
@@ -205,7 +177,9 @@ def save_match():
             
             trans.commit()
             return jsonify({"status": "success", "match_id": match_id, "message": "Sauvegardé !"})
-    except Exception as e: return jsonify({"status": "error", "message": "Erreur BDD"}), 200
+    except Exception as e: 
+        print("ERREUR SAUVEGARDE:", e)
+        return jsonify({"status": "error", "message": "Erreur BDD"}), 200
 
 @app.route('/live')
 @login_required
@@ -271,7 +245,6 @@ def get_match_stats_text(match_id):
                 pts_set = [p for p in tous_points if p['set'] == n_set]
                 if pts_set: sets_scores.append({"set": n_set, "score": f"{pts_set[-1]['score_dom']} - {pts_set[-1]['score_ext']}"})
 
-            # CONSTRUCTION DE LA DONNÉE JSON BRUTE POUR L'EXPORT
             raw_data = {
                 "home": {"name": team_home, "players": roster_h.get('all', [])},
                 "away": {"name": team_away, "players": roster_a.get('all', [])},
@@ -282,7 +255,7 @@ def get_match_stats_text(match_id):
                 "match_title": f"{team_home} vs {team_away}", "sets_info": sets_scores, 
                 "stats_indiv_h": indiv_h, "stats_indiv_a": indiv_a, "pie_h": pie_h, 
                 "eff_rot_h": eff_rot_h, "eff_rot_a": eff_rot_a, "team_home": team_home, "team_away": team_away,
-                "raw_data": raw_data # <-- AJOUT POUR L'EXPORT JSON
+                "raw_data": raw_data
             })
     except Exception as e: return jsonify({"error": str(e)}), 500
 
@@ -477,10 +450,5 @@ def delete_team(team_id):
     except: flash("Erreur suppression équipe.", "error")
     return redirect(url_for('admin_dashboard'))
 
-
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
-
-
-
