@@ -9,7 +9,6 @@ print("1. Configuration des dépendances...")
 import tabula
 import pandas as pd
 import numpy as np
-from google.colab import files
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
